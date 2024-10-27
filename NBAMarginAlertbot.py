@@ -1,6 +1,6 @@
 import os
 import telebot
-import requests
+from flask import Flask, request
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ team_names = []
 team_data = {}
 bot = telebot.TeleBot(BOT_TOKEN)
 alert_margin = 10 
+app = Flask(__name__)
 
 
 @bot.message_handler(commands=['start'])
@@ -292,4 +293,24 @@ def monitor_games(chat_id, team_names):
 
 # Start the bot polling
 print("bot runnin...")
-bot.polling()
+# Webhook route to receive updates
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_str = request.get_data().decode('UTF-8')
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return "Webhook received", 200
+    else:
+        return "Unsupported Media Type", 415
+
+# Route to set the webhook
+@app.route('/set_webhook', methods=['GET'])
+def set_webhook():
+    webhook_url = 'https://nbamarginalert.yaredwondatir77.workers.dev/'  # Replace with actual URL
+    success = bot.set_webhook(url=webhook_url)
+    return "Webhook setup successful" if success else "Webhook setup failed"
+
+# Start Flask app
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
